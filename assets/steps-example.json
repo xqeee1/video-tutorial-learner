@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "case_id": "example-ai-subtitle",
+  "title": "示例：用 AI 字幕给口播视频加字幕并导出",
+  "source": {
+    "video": "D:/教程/ai-subtitle-demo.mp4",
+    "url": null,
+    "duration_sec": 482,
+    "software": ["示例剪辑软件"],
+    "software_version": "教程中未标明"
+  },
+  "variables": {
+    "INPUT_VIDEO": {
+      "description": "待处理口播素材绝对路径",
+      "example": "D:/素材/raw.mp4",
+      "required": true
+    },
+    "OUTPUT_DIR": {
+      "description": "成片输出目录，需为空或不存在同名文件",
+      "example": "D:/成片/",
+      "required": true
+    },
+    "SUBTITLE_LANG": {
+      "description": "AI 字幕识别语言",
+      "example": "中文",
+      "required": false
+    },
+    "EXPORT_PRESET": {
+      "description": "导出规格",
+      "example": "1080P",
+      "required": false
+    }
+  },
+  "preconditions": [
+    "已安装并登录示例剪辑软件",
+    "素材为含清晰人声的 mp4 文件",
+    "输出目录所在磁盘有足够空间"
+  ],
+  "steps": [
+    {
+      "step_id": "S01",
+      "time_range": [12, 24],
+      "intent": "导入待处理素材",
+      "action": {"type": "gui", "target": "媒体库 → 导入按钮"},
+      "params": {"file": "{{INPUT_VIDEO}}"},
+      "precondition_state": "软件停在空工程首页，媒体库为空",
+      "expected": "媒体库出现该素材缩略图，显示时长与文件名",
+      "evidence": [
+        {
+          "frame": "evidence/frames/frame_0004.jpg",
+          "time_sec": 12,
+          "speech": "先把我们录好的素材拖进来",
+          "note": "操作前：媒体库为空"
+        },
+        {
+          "frame": "evidence/frames/frame_0008.jpg",
+          "time_sec": 24,
+          "note": "操作后：素材缩略图出现"
+        }
+      ],
+      "confidence": "high",
+      "required": true
+    },
+    {
+      "step_id": "S02",
+      "time_range": [26, 38],
+      "intent": "把素材片段放到主时间线",
+      "action": {"type": "gui", "target": "媒体库素材 → 拖至主视频轨道"},
+      "precondition_state": "媒体库已有素材，时间线为空",
+      "expected": "主视频轨道出现片段，播放头可拖动，预览窗口显示首帧",
+      "evidence": [
+        {"frame": "evidence/frames/frame_0012.jpg", "time_sec": 36, "speech": "拖到时间线上"}
+      ],
+      "confidence": "high",
+      "depends_on": ["S01"],
+      "required": true
+    },
+    {
+      "step_id": "S03",
+      "time_range": [41, 55],
+      "intent": "触发 AI 自动字幕识别",
+      "action": {"type": "gui", "target": "顶部菜单 → 文本 → 智能字幕 → 开始识别"},
+      "params": {"language": "{{SUBTITLE_LANG}}"},
+      "precondition_state": "主轨道已选中该片段",
+      "expected": "右侧出现识别面板，语言下拉显示所选语言，进度条开始推进",
+      "evidence": [
+        {
+          "frame": "evidence/frames/frame_0017.jpg",
+          "time_sec": 51,
+          "speech": "这里把识别语言改成中文，不然会出英文"
+        },
+        {
+          "frame": "evidence/dense/d_0006.jpg",
+          "time_sec": 52,
+          "note": "补抽密帧（fps=4, -ss 50），可见语言下拉值"
+        }
+      ],
+      "confidence": "medium",
+      "unverified": ["识别语言下拉的完整选项列表在画面中被面板遮挡"],
+      "depends_on": ["S02"],
+      "required": true
+    },
+    {
+      "step_id": "S04",
+      "time_range": [55, 92],
+      "intent": "等待字幕识别完成",
+      "action": {"type": "wait", "target": "AI 字幕识别进度"},
+      "precondition_state": "识别进度条推进中",
+      "expected": "进度到 100%，时间线上方生成字幕轨道，字幕条数大于 0",
+      "evidence": [
+        {"frame": "evidence/frames/frame_0030.jpg", "time_sec": 90, "speech": "等它跑完就会出现字幕"}
+      ],
+      "confidence": "medium",
+      "notes": "进度时长随素材长度变化，复现时设置等待上限 300 秒，超时标 failed",
+      "depends_on": ["S03"],
+      "required": true
+    },
+    {
+      "step_id": "S05",
+      "time_range": [96, 130],
+      "intent": "校正识别错误的字幕文本",
+      "action": {"type": "input", "target": "字幕轨道 → 选中字幕条 → 文本编辑框"},
+      "params": {"scope": "逐条校对口播专有名词"},
+      "precondition_state": "字幕轨道已生成",
+      "expected": "被修改的字幕条文本更新，预览窗口同步显示新文本",
+      "evidence": [
+        {"frame": "evidence/frames/frame_0042.jpg", "time_sec": 126, "speech": "专有名词一定要手动改一下"}
+      ],
+      "confidence": "high",
+      "loop": {"over": "{{SUBTITLE_ITEMS}}", "as": "item"},
+      "notes": "对每条识别有误的字幕重复；内容依赖具体素材，不写死文本",
+      "depends_on": ["S04"],
+      "required": true
+    },
+    {
+      "step_id": "S06",
+      "time_range": [140, 168],
+      "intent": "设置导出规格并导出成片",
+      "action": {"type": "gui", "target": "右上角导出 → 设置分辨率 → 导出"},
+      "params": {"preset": "{{EXPORT_PRESET}}", "output_dir": "{{OUTPUT_DIR}}"},
+      "precondition_state": "工程已保存，预览可正常播放",
+      "expected": "输出目录出现 .mp4 文件，分辨率与所选规格一致，时长与素材接近",
+      "evidence": [
+        {"frame": "evidence/frames/frame_0055.jpg", "time_sec": 165, "speech": "选 1080P 然后导出就行了"}
+      ],
+      "confidence": "medium",
+      "unverified": ["导出对话框中的码率与编码格式在画面中不可读"],
+      "depends_on": ["S05"],
+      "required": true
+    },
+    {
+      "step_id": "S07",
+      "time_range": [170, 182],
+      "intent": "预览成片确认字幕位置",
+      "action": {"type": "verify", "target": "预览窗口播放前 10 秒"},
+      "precondition_state": "导出完成",
+      "expected": "字幕正常显示、无遮挡、无明显错字",
+      "evidence": [
+        {"frame": "evidence/frames/frame_0060.jpg", "time_sec": 180}
+      ],
+      "confidence": "high",
+      "depends_on": ["S06"],
+      "required": false
+    }
+  ],
+  "branches": [
+    {
+      "condition": "素材为竖屏（高 > 宽）",
+      "goto": "S06",
+      "else": "S06",
+      "note": "竖屏时在导出对话框改选竖版分辨率，其余步骤不变"
+    }
+  ],
+  "open_questions": [
+    "S03：识别语言下拉的完整选项列表，需用户提供或在实机确认",
+    "S06：导出码率与编码格式，教程画面不可读"
+  ],
+  "confidence_summary": {"high": 4, "medium": 3, "low": 0, "unverified": 2}
+}

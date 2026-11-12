@@ -1,0 +1,23 @@
+# Python runtime artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Cases contain tutorial frames, transcripts and the user's own material - never commit them.
+cases/
+profiles/
+*.wav
+*.srt
+evidence/
+runs/
+shots/
+.tmp*/
+.work/
+
+# Packages / OS / editor
+*.zip
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
